@@ -10,6 +10,7 @@ from datetime import datetime
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+import asyncio
 import matplotlib
 matplotlib.use('Agg')
 
@@ -17,11 +18,12 @@ matplotlib.use('Agg')
 # YAPILANDIRMA AYARLARI - BURAYA KENDİ BİLGİLERİNİZİ GİRİN
 # ============================================================================
 
-BOT_TOKEN = "8259780486:AAFfQa1fHpxtKo9rpNrWlD8A6gzco3jrzao"  # Bot Token'ınızı buraya yazın
-TARGET_GROUP_ID = -1003644658251  # Hedef grup ID'nizi buraya yazın (- işareti ile başlamalı)
-SCHEDULE_HOUR = 9  # Saat (0-23 arası)
-SCHEDULE_MINUTE = 0  # Dakika (0-59 arası)
-AUTHORIZED_USERS = [5695472914]  # Kendi ID'niz
+BOT_TOKEN = "8259780486:AAFfQa1fHpxtKo9rpNrWlD8A6gzco3jrzao"
+TARGET_GROUP_ID = -1003644658251
+SCHEDULE_HOUR = 9
+SCHEDULE_MINUTE = 0
+AUTHORIZED_USERS = [5695472914]
+
 # ============================================================================
 # TRADINGVIEW TARAMA AYARLARI
 # ============================================================================
@@ -52,17 +54,20 @@ TRADINGVIEW_PAYLOAD_BIST_DIP = {
 
 def add_watermark(fig, text="@BISTDipTarayici_Bot"):
     """Grafiğe filigran ekler"""
-    fig.text(
-        0.5, 0.90, 
-        text, 
-        fontsize=30, 
-        color='gray', 
-        alpha=0.3, 
-        ha='right', 
-        va='top', 
-        rotation=15,
-        transform=fig.transFigure
-    )
+    try:
+        fig.text(
+            0.5, 0.90, 
+            text, 
+            fontsize=30, 
+            color='gray', 
+            alpha=0.3, 
+            ha='right', 
+            va='top', 
+            rotation=15,
+            transform=fig.transFigure
+        )
+    except Exception as e:
+        print(f"Filigran ekleme hatası: {e}")
 
 def get_screener_data_from_payload(payload, url):
     """TradingView'dan tarama verilerini çeker"""
@@ -100,104 +105,109 @@ def get_screener_data_from_payload(payload, url):
 
 def create_table_png_bist_dip(df, filename_prefix="TR_tablo_dip"):
     """Tarama sonuçlarından PNG tablo oluşturur"""
-    tablo_df = df[["Symbol", "close"]].copy()
-    col_fiyat = "Fiyat (₺)"
-    tablo_df.rename(columns={"Symbol": "Hisse", "close": col_fiyat}, inplace=True)
+    try:
+        tablo_df = df[["Symbol", "close"]].copy()
+        col_fiyat = "Fiyat (₺)"
+        tablo_df.rename(columns={"Symbol": "Hisse", "close": col_fiyat}, inplace=True)
 
-    total_rows = len(tablo_df)
-    PAGE_SIZE = 20
-    total_pages = math.ceil(total_rows / PAGE_SIZE)
+        total_rows = len(tablo_df)
+        PAGE_SIZE = 20
+        total_pages = math.ceil(total_rows / PAGE_SIZE)
 
-    created_files = []
+        created_files = []
 
-    for page in range(total_pages):
-        start = page * PAGE_SIZE
-        end = min(start + PAGE_SIZE, total_rows)
-        chunk = tablo_df.iloc[start:end]
+        for page in range(total_pages):
+            start = page * PAGE_SIZE
+            end = min(start + PAGE_SIZE, total_rows)
+            chunk = tablo_df.iloc[start:end]
 
-        mid = len(chunk) // 2 + len(chunk) % 2
-        left = chunk.iloc[:mid].reset_index(drop=True)
-        right = chunk.iloc[mid:].reset_index(drop=True)
+            mid = len(chunk) // 2 + len(chunk) % 2
+            left = chunk.iloc[:mid].reset_index(drop=True)
+            right = chunk.iloc[mid:].reset_index(drop=True)
 
-        while len(right) < mid:
-            right = pd.concat([right, pd.DataFrame([["", ""]] * (mid - len(right)), columns=right.columns)], ignore_index=True)
-            
-        combined = pd.DataFrame({
-            "Hisse": left["Hisse"],
-            col_fiyat: left[col_fiyat],
-            "Hisse_2": right["Hisse"],
-            f"{col_fiyat}_2": right[col_fiyat]
-        })
+            while len(right) < mid:
+                right = pd.concat([right, pd.DataFrame([["", ""]] * (mid - len(right)), columns=right.columns)], ignore_index=True)
+                
+            combined = pd.DataFrame({
+                "Hisse": left["Hisse"],
+                col_fiyat: left[col_fiyat],
+                "Hisse_2": right["Hisse"],
+                f"{col_fiyat}_2": right[col_fiyat]
+            })
 
-        fig, ax = plt.subplots(figsize=(8, 6))
-        ax.axis("off")
-        fig.patch.set_facecolor("#1e1e1e")
+            fig, ax = plt.subplots(figsize=(8, 6))
+            ax.axis("off")
+            fig.patch.set_facecolor("#1e1e1e")
 
-        ax.text(
-            0.5, 1.05,
-            f"Dip Taraması BIST (Sayfa {page+1}/{total_pages})",
-            color="white", fontsize=13, fontweight="bold", ha="center", transform=ax.transAxes
-        )
+            ax.text(
+                0.5, 1.05,
+                f"Dip Taraması BIST (Sayfa {page+1}/{total_pages})",
+                color="white", fontsize=13, fontweight="bold", ha="center", transform=ax.transAxes
+            )
 
-        table = ax.table(
-            cellText=combined.values,
-            colLabels=["Hisse", col_fiyat, "Hisse", col_fiyat],
-            cellLoc="center",
-            loc="center"
-        )
+            table = ax.table(
+                cellText=combined.values,
+                colLabels=["Hisse", col_fiyat, "Hisse", col_fiyat],
+                cellLoc="center",
+                loc="center"
+            )
 
-        table.auto_set_font_size(False)
-        table.set_fontsize(10)
-        table.scale(1, 1.4)
+            table.auto_set_font_size(False)
+            table.set_fontsize(10)
+            table.scale(1, 1.4)
 
-        for (row, col), cell in table.get_celld().items():
-            if row == 0:
-                cell.set_facecolor("#333333")
-                cell.set_text_props(color="white", fontweight="bold")
-            else:
-                cell.set_facecolor("#1e1e1e")
-                cell.set_text_props(color="white")
-            cell.set_edgecolor("#444444")
+            for (row, col), cell in table.get_celld().items():
+                if row == 0:
+                    cell.set_facecolor("#333333")
+                    cell.set_text_props(color="white", fontweight="bold")
+                else:
+                    cell.set_facecolor("#1e1e1e")
+                    cell.set_text_props(color="white")
+                cell.set_edgecolor("#444444")
 
-        add_watermark(fig)
+            add_watermark(fig)
 
-        plt.tight_layout()
-        file_name = f"{filename_prefix}_{page + 1}.png"
-        plt.savefig(file_name, dpi=300, bbox_inches="tight", facecolor=fig.get_facecolor())
-        plt.close(fig)
-        created_files.append(file_name)
-        print(f"🖼️ {file_name} oluşturuldu.")
-    
-    return created_files
+            plt.tight_layout()
+            file_name = f"{filename_prefix}_{page + 1}.png"
+            plt.savefig(file_name, dpi=300, bbox_inches="tight", facecolor=fig.get_facecolor())
+            plt.close(fig)
+            created_files.append(file_name)
+            print(f"🖼️ {file_name} oluşturuldu.")
+        
+        return created_files
+    except Exception as e:
+        print(f"❌ PNG oluşturma hatası: {e}")
+        return []
 
 def format_text_results(df, total_count):
     """Tarama sonuçlarını yazı formatına dönüştürür"""
-    if df.empty:
-        return "❌ Tarama sonucu bulunamadı."
-    
-    message = f"📊 **BIST Dip Taraması Sonuçları**\n"
-    message += f"📅 Tarih: {datetime.now().strftime('%d.%m.%Y %H:%M')}\n"
-    message += f"🔢 Toplam Bulunan: **{total_count}** hisse\n"
-    message += "━━━━━━━━━━━━━━━━━━━━\n\n"
-    
-    # İlk 50 hisseyi göster
-    display_df = df[["Symbol", "close"]].head(50)
-    
-    for idx, row in display_df.iterrows():
-        symbol = row["Symbol"]
-        price = row["close"]
-        message += f"🔹 **{symbol}**: {price:.2f} ₺\n"
+    try:
+        if df.empty:
+            return "❌ Tarama sonucu bulunamadı."
         
-        # Telegram mesaj limiti için kontrol (4096 karakter)
-        if len(message) > 3500:
-            message += f"\n... ve {total_count - idx - 1} hisse daha\n"
-            break
-    
-    message += "\n━━━━━━━━━━━━━━━━━━━━\n"
-    
-    message += "⚠️ Bu tarama bilgilendirme amaçlıdır, yatırım tavsiyesi değildir."
-    
-    return message
+        message = f"📊 **BIST Dip Taraması Sonuçları**\n"
+        message += f"📅 Tarih: {datetime.now().strftime('%d.%m.%Y %H:%M')}\n"
+        message += f"🔢 Toplam Bulunan: **{total_count}** hisse\n"
+        message += "━━━━━━━━━━━━━━━━━━━━\n\n"
+        
+        display_df = df[["Symbol", "close"]].head(50)
+        
+        for idx, row in display_df.iterrows():
+            symbol = row["Symbol"]
+            price = row["close"]
+            message += f"🔹 **{symbol}**: {price:.2f} ₺\n"
+            
+            if len(message) > 3500:
+                message += f"\n... ve {total_count - idx - 1} hisse daha\n"
+                break
+        
+        message += "\n━━━━━━━━━━━━━━━━━━━━\n"
+        message += "⚠️ Bu tarama bilgilendirme amaçlıdır, yatırım tavsiyesi değildir."
+        
+        return message
+    except Exception as e:
+        print(f"❌ Metin formatlama hatası: {e}")
+        return "❌ Sonuçlar formatlanırken hata oluştu."
 
 # ============================================================================
 # TARAMA VE GÖNDERME FONKSİYONU
@@ -212,13 +222,11 @@ async def send_daily_scan(context: ContextTypes.DEFAULT_TYPE):
     scanner_url = "https://scanner.tradingview.com/turkey/scan"
     
     try:
-        # 1. Bilgilendirme mesajı gönder
         status_msg = await context.bot.send_message(
             chat_id=TARGET_GROUP_ID,
             text="⏳ Günlük BIST Dip Taraması başlatılıyor..."
         )
         
-        # 2. Veriyi çek
         df_result, total_count = get_screener_data_from_payload(
             TRADINGVIEW_PAYLOAD_BIST_DIP, 
             scanner_url
@@ -228,35 +236,36 @@ async def send_daily_scan(context: ContextTypes.DEFAULT_TYPE):
             await status_msg.edit_text("❌ Tarama sonucu bulunamadı veya veri çekme hatası oluştu.")
             return
         
-        # 3. PNG tablolarını oluştur
         filename_prefix = f"daily_scan_{datetime.now().strftime('%Y%m%d')}"
         png_files = create_table_png_bist_dip(df_result, filename_prefix)
         
-        # 4. PNG'leri gruba gönder
-        await status_msg.edit_text("📤 Tarama tamamlandı, resimler gönderiliyor...")
+        if png_files:
+            await status_msg.edit_text("📤 Tarama tamamlandı, resimler gönderiliyor...")
+            
+            for idx, file_name in enumerate(png_files):
+                try:
+                    with open(file_name, "rb") as img:
+                        caption = f"📈 **Günlük BIST Dip Taraması** ({idx+1}/{len(png_files)})\n"
+                        caption += f"📅 {datetime.now().strftime('%d.%m.%Y')}\n"
+                        caption += f"🔢 Toplam: {total_count} hisse"
+                        
+                        await context.bot.send_photo(
+                            chat_id=TARGET_GROUP_ID,
+                            photo=img,
+                            caption=caption,
+                            parse_mode='Markdown'
+                        )
+                    print(f"✅ {file_name} gönderildi.")
+                    await asyncio.sleep(0.5)
+                except Exception as e:
+                    print(f"❌ PNG gönderme hatası ({file_name}): {e}")
+                finally:
+                    if os.path.exists(file_name):
+                        try:
+                            os.remove(file_name)
+                        except:
+                            pass
         
-        for idx, file_name in enumerate(png_files):
-            try:
-                with open(file_name, "rb") as img:
-                    caption = f"📈 **Günlük BIST Dip Taraması** ({idx+1}/{len(png_files)})\n"
-                    caption += f"📅 {datetime.now().strftime('%d.%m.%Y')}\n"
-                    caption += f"🔢 Toplam: {total_count} hisse"
-                    
-                    await context.bot.send_photo(
-                        chat_id=TARGET_GROUP_ID,
-                        photo=img,
-                        caption=caption,
-                        parse_mode='Markdown'
-                    )
-                print(f"✅ {file_name} gönderildi.")
-            except Exception as e:
-                print(f"❌ PNG gönderme hatası ({file_name}): {e}")
-            finally:
-                # Dosyayı temizle
-                if os.path.exists(file_name):
-                    os.remove(file_name)
-        
-        # 5. Yazılı sonuçları gönder
         text_results = format_text_results(df_result, total_count)
         await context.bot.send_message(
             chat_id=TARGET_GROUP_ID,
@@ -264,11 +273,9 @@ async def send_daily_scan(context: ContextTypes.DEFAULT_TYPE):
             parse_mode='Markdown'
         )
         
-        # 6. Durum mesajını güncelle
         await status_msg.edit_text(
             f"✅ Günlük tarama tamamlandı!\n"
-            f"📊 {total_count} hisse bulundu\n"
-            
+            f"📊 {total_count} hisse bulundu"
         )
         
         print(f"\n✅ Tarama başarıyla tamamlandı ve gruba gönderildi.")
@@ -299,105 +306,72 @@ async def manual_scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ============================================================================
 
 async def duyuru(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Yetkililer için duyuru gönderme komutu.
-    Kullanım:
-    - Sadece metin: /duyuru Buraya mesajınızı yazın
-    - Resimle birlikte: Resme reply yaparak /duyuru yazın veya resim caption'ına /duyuru ekleyin
-    """
+    """Yetkililer için duyuru gönderme komutu"""
     user_id = update.effective_user.id
     
-    # Yetki kontrolü
     if user_id not in AUTHORIZED_USERS:
         await update.message.reply_text("❌ Bu komutu kullanma yetkiniz yok.")
         return
     
-    # Resimli mesaj mı kontrol et
-    if update.message.photo:
-        # Resim caption'ından komutu çıkar
-        caption = update.message.caption or ""
-        announcement_text = caption.replace('/duyuru', '').strip()
-        
-        # En yüksek çözünürlüklü fotoğrafı al
-        photo = update.message.photo[-1]
-        photo_file = await context.bot.get_file(photo.file_id)
-        
-        try:
-            # Resmi gruba gönder
-            if announcement_text:
-                await context.bot.send_photo(
-                    chat_id=TARGET_GROUP_ID,
-                    photo=photo.file_id,
-                    caption=announcement_text,
-                    parse_mode='Markdown'
-                )
-            else:
-                await context.bot.send_photo(
-                    chat_id=TARGET_GROUP_ID,
-                    photo=photo.file_id
-                )
-            
-            await update.message.reply_text("✅ Resimli duyuru başarıyla gruba gönderildi!")
-            
-        except Exception as e:
-            await update.message.reply_text(f"❌ Duyuru gönderme hatası: {e}")
-            print(f"Resimli duyuru hatası: {e}")
-        
-        return
-    
-    # Reply yapılmış resim var mı kontrol et
-    if update.message.reply_to_message and update.message.reply_to_message.photo:
-        # Reply mesajından metni al
-        announcement_text = update.message.text.replace('/duyuru', '').strip()
-        
-        # Reply edilen mesajdaki resmi al
-        photo = update.message.reply_to_message.photo[-1]
-        
-        try:
-            # Resmi gruba gönder
-            if announcement_text:
-                await context.bot.send_photo(
-                    chat_id=TARGET_GROUP_ID,
-                    photo=photo.file_id,
-                    caption=announcement_text,
-                    parse_mode='Markdown'
-                )
-            else:
-                await context.bot.send_photo(
-                    chat_id=TARGET_GROUP_ID,
-                    photo=photo.file_id
-                )
-            
-            await update.message.reply_text("✅ Resimli duyuru başarıyla gruba gönderildi!")
-            
-        except Exception as e:
-            await update.message.reply_text(f"❌ Duyuru gönderme hatası: {e}")
-            print(f"Reply resimli duyuru hatası: {e}")
-        
-        return
-    
-    # Sadece metin mesajı
-    announcement_text = update.message.text.partition(' ')[2]
-    
-    if not announcement_text:
-        help_text = (
-            "📢 **Duyuru Gönderme Kılavuzu**\n\n"
-            "**Sadece Metin:**\n"
-            "`/duyuru Buraya mesajınızı yazın`\n\n"
-            "**Resimli:**\n"
-            "1️⃣ Resmi yükleyin ve caption'a `/duyuru` ekleyin\n"
-            "2️⃣ VEYA resme reply yapıp `/duyuru mesajınız` yazın\n\n"
-            "💡 **Özellikler:**\n"
-            "• Boşluklar korunur\n"
-            "• Satır atlamaları korunur\n"
-            "• Markdown formatı desteklenir (**kalın**, *italik*)\n\n"
-            "⚠️ Bu komutu sadece yetkili kullanıcılar kullanabilir."
-        )
-        await update.message.reply_text(help_text, parse_mode='Markdown')
-        return
-    
-    # Metni gruba gönder
     try:
+        if update.message.photo:
+            caption = update.message.caption or ""
+            announcement_text = caption.replace('/duyuru', '').strip()
+            photo = update.message.photo[-1]
+            
+            if announcement_text:
+                await context.bot.send_photo(
+                    chat_id=TARGET_GROUP_ID,
+                    photo=photo.file_id,
+                    caption=announcement_text,
+                    parse_mode='Markdown'
+                )
+            else:
+                await context.bot.send_photo(
+                    chat_id=TARGET_GROUP_ID,
+                    photo=photo.file_id
+                )
+            
+            await update.message.reply_text("✅ Resimli duyuru başarıyla gruba gönderildi!")
+            return
+        
+        if update.message.reply_to_message and update.message.reply_to_message.photo:
+            announcement_text = update.message.text.replace('/duyuru', '').strip()
+            photo = update.message.reply_to_message.photo[-1]
+            
+            if announcement_text:
+                await context.bot.send_photo(
+                    chat_id=TARGET_GROUP_ID,
+                    photo=photo.file_id,
+                    caption=announcement_text,
+                    parse_mode='Markdown'
+                )
+            else:
+                await context.bot.send_photo(
+                    chat_id=TARGET_GROUP_ID,
+                    photo=photo.file_id
+                )
+            
+            await update.message.reply_text("✅ Resimli duyuru başarıyla gruba gönderildi!")
+            return
+        
+        announcement_text = update.message.text.partition(' ')[2]
+        
+        if not announcement_text:
+            help_text = (
+                "📢 **Duyuru Gönderme Kılavuzu**\n\n"
+                "**Sadece Metin:**\n"
+                "`/duyuru Buraya mesajınızı yazın`\n\n"
+                "**Resimli:**\n"
+                "1️⃣ Resmi yükleyin ve caption'a `/duyuru` ekleyin\n"
+                "2️⃣ VEYA resme reply yapıp `/duyuru mesajınız` yazın\n\n"
+                "💡 **Özellikler:**\n"
+                "• Markdown formatı desteklenir (**kalın**, *italik*)\n\n"
+                "⚠️ Bu komutu sadece yetkili kullanıcılar kullanabilir."
+            )
+            await update.message.reply_text(help_text, parse_mode='Markdown')
+            return
+        
         await context.bot.send_message(
             chat_id=TARGET_GROUP_ID,
             text=announcement_text,
@@ -407,11 +381,19 @@ async def duyuru(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     except Exception as e:
         await update.message.reply_text(f"❌ Duyuru gönderme hatası: {e}")
-        print(f"Metin duyuru hatası: {e}")
+        print(f"Duyuru hatası: {e}")
 
 # ============================================================================
 # BOT BAŞLATMA
 # ============================================================================
+
+async def run_initial_scan(app):
+    """Bot başladığında ilk taramayı yapar"""
+    await asyncio.sleep(5)  # Bot tam olarak başlaması için bekle
+    try:
+        await send_daily_scan(app)
+    except Exception as e:
+        print(f"❌ İlk tarama hatası: {e}")
 
 def main():
     print("\n" + "="*60)
@@ -420,19 +402,15 @@ def main():
     
     print(f"📌 Hedef Grup ID: {TARGET_GROUP_ID}")
     print(f"⏰ Zamanlanmış Saat: {SCHEDULE_HOUR:02d}:{SCHEDULE_MINUTE:02d}")
-    print(f"🔄 İlk tarama ŞİMDİ yapılacak, sonraki tarama yarın {SCHEDULE_HOUR:02d}:{SCHEDULE_MINUTE:02d}'de\n")
+    print(f"🔄 Bot başladıktan 5 saniye sonra ilk tarama yapılacak\n")
     
-    # Bot uygulaması oluştur
     app = Application.builder().token(BOT_TOKEN).build()
     
-    # Komutları ekle
     app.add_handler(CommandHandler("tarama", manual_scan))
-    app.add_handler(CommandHandler("duyuru", duyuru))  # ← DUYURU KOMUTU EKLENDİ
+    app.add_handler(CommandHandler("duyuru", duyuru))
     
-    # Zamanlanmış görev oluştur
     scheduler = AsyncIOScheduler()
     
-    # Her gün belirlenen saatte çalış
     scheduler.add_job(
         send_daily_scan,
         'cron',
@@ -441,22 +419,16 @@ def main():
         args=[app]
     )
     
-    # ✅ Bot başlatıldığında HEMEN bir kez çalış
-    scheduler.add_job(
-        send_daily_scan,
-        'date',
-        run_date=datetime.now(),  # ← Bu satır HEMEN çalıştırır!
-        args=[app]
-    )
-    
     scheduler.start()
+    
+    # İlk taramayı ayrı bir task olarak çalıştır
+    asyncio.get_event_loop().create_task(run_initial_scan(app))
     
     print("✅ Bot çalışıyor ve görevler zamanlandı!")
     print("💡 Manuel tarama için gruba /tarama yazabilirsiniz")
     print("🛑 Durdurmak için Ctrl+C tuşlarına basın\n")
     print("="*60 + "\n")
     
-    # Botu çalıştır
     app.run_polling()
 
 if __name__ == "__main__":
