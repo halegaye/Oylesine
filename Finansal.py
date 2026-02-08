@@ -909,88 +909,56 @@ def add_watermark(fig, text="@Finansalgucbot"):
 
 # ------------------- Finansal Veri Çekme Fonksiyonları (Yahooquery) -------------------
 
-def get_val(data, key):
-    """Yahoo JSON içinden veriyi güvenli çeker."""
-    if not data or not isinstance(data, dict): return None
-    v = data.get(key)
-    return v.get("raw") if isinstance(v, dict) else v
 
 def fetch_chart_data(symbol: str):
-    """2 yıllık veriyi Heikin-Ashi için OHLC formatında çeker."""
+    """
+    Hem Heikin-Ashi (DataFrame) hem de normal grafik (List) için veriyi tek seferde çeker.
+    Geriye (df, times, closes) döner.
+    """
+    # 2 yıllık veri çekiyoruz ki teknik analiz tutarlı olsun
     params = {"range": "2y", "interval": "1d"} 
+    
     try:
+        # Sembolü temizle (Örn: asels.is -> ASELS)
         pure_symbol = symbol.split('.')[0].upper()
         url = YAHOO_CHART_URL.format(pure_symbol)
-        resp = requests.get(url, params=params, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
-        if resp.status_code != 200: return None
         
-        data = resp.json()["chart"]["result"][0]
-        quotes = data["indicators"]["quote"][0]
+        resp = requests.get(url, params=params, headers={"User-Agent": "Mozilla/5.0"}, timeout=15)
+        
+        if resp.status_code != 200:
+            return None
+        
+        data = resp.json()
+        if not data.get("chart") or not data["chart"].get("result"):
+            return None
+            
+        result = data["chart"]["result"][0]
+        quotes = result["indicators"]["quote"][0]
+        timestamps = result.get("timestamp")
+    
+        if not timestamps:
+            return None
+
+        # 1. DataFrame formatı (Heikin-Ashi ve gelişmiş analiz için)
         df = pd.DataFrame({
-            'time': [datetime.fromtimestamp(t) for t in data["timestamp"]],
-            'open': quotes.get('open'), 'high': quotes.get('high'),
-            'low': quotes.get('low'), 'close': quotes.get('close')
+            'time': [datetime.fromtimestamp(t) for t in timestamps],
+            'open': quotes.get('open'),
+            'high': quotes.get('high'),
+            'low': quotes.get('low'),
+            'close': quotes.get('close')
         }).dropna()
-        return df if not df.empty else None
-    except: return None
 
-def fetch_fundamentals(symbol: str):
-    """Cari Oran ve Borç verilerini Yahoo API'den garantili çeker."""
-    try:
-        ticker = f"{symbol.split('.')[0].upper()}.IS"
-        url = f"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{ticker}?modules=financialData,summaryDetail,defaultKeyStatistics"
-        res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10).json()
-        data = res.get("quoteSummary", {}).get("result", [{}])[0]
+        # 2. Liste formatı (Eski fonksiyonların ve basit grafiklerin beklediği format)
+        times = df['time'].tolist()
+        closes = df['close'].tolist()
+
+        # Üçünü birden döndürüyoruz, hangisi lazımsa o kullanılır
+        return df, times, closes
+
+    except Exception as e:
+        print(f"fetch_chart_data hatası ({symbol}): {e}")
+        return None
         
-        f_d = data.get("financialData", {})
-        s_d = data.get("summaryDetail", {})
-        k_s = data.get("defaultKeyStatistics", {})
-
-        return {
-            "Fiyat (TRY)": get_val(f_d, "currentPrice"),
-            "Ort. Hacim (10 gün)": get_val(s_d, "averageDailyVolume10Day"),
-            "Piyasa Değeri": get_val(s_d, "marketCap"),
-            "Geriye Dönük F/K": get_val(s_d, "trailingPE"),
-            "İleriye Dönük F/K": get_val(s_d, "forwardPE"),
-            "Fiyat/Satış (P/S)": get_val(s_d, "priceToSalesTrailing12Months"),
-            "Brüt Kar Marjı (%)": get_val(f_d, "grossMargins") * 100 if get_val(f_d, "grossMargins") else None,
-            "Faaliyet Kar Marjı (%)": get_val(f_d, "operatingMargins") * 100 if get_val(f_d, "operatingMargins") else None,
-            "Net Kar Marjı (%)": get_val(f_d, "profitMargins") * 100 if get_val(f_d, "profitMargins") else None,
-            "Özkaynak Karlılığı (ROE) (%)": get_val(f_d, "returnOnEquity") * 100 if get_val(f_d, "returnOnEquity") else None,
-            "Varlık Karlılığı (ROA) (%)": get_val(f_d, "returnOnAssets") * 100 if get_val(f_d, "returnOnAssets") else None,
-            "Cari Oran": get_val(f_d, "currentRatio"),
-            "Borç/Özkaynak": get_val(f_d, "debtToEquity") if get_val(f_d, "debtToEquity") else get_val(k_s, "debtToEquity")
-        }
-    except: return None
-
-def fetch_fundamentals(symbol: str):
-    """Cari Oran ve Borç verilerini Yahoo API'den garantili çeker."""
-    try:
-        ticker = f"{symbol.split('.')[0].upper()}.IS"
-        url = f"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{ticker}?modules=financialData,summaryDetail,defaultKeyStatistics"
-        res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10).json()
-        data = res.get("quoteSummary", {}).get("result", [{}])[0]
-        
-        f_d = data.get("financialData", {})
-        s_d = data.get("summaryDetail", {})
-        k_s = data.get("defaultKeyStatistics", {})
-
-        return {
-            "Fiyat (TRY)": get_val(f_d, "currentPrice"),
-            "Ort. Hacim (10 gün)": get_val(s_d, "averageDailyVolume10Day"),
-            "Piyasa Değeri": get_val(s_d, "marketCap"),
-            "Geriye Dönük F/K": get_val(s_d, "trailingPE"),
-            "İleriye Dönük F/K": get_val(s_d, "forwardPE"),
-            "Fiyat/Satış (P/S)": get_val(s_d, "priceToSalesTrailing12Months"),
-            "Brüt Kar Marjı (%)": get_val(f_d, "grossMargins") * 100 if get_val(f_d, "grossMargins") else None,
-            "Faaliyet Kar Marjı (%)": get_val(f_d, "operatingMargins") * 100 if get_val(f_d, "operatingMargins") else None,
-            "Net Kar Marjı (%)": get_val(f_d, "profitMargins") * 100 if get_val(f_d, "profitMargins") else None,
-            "Özkaynak Karlılığı (ROE) (%)": get_val(f_d, "returnOnEquity") * 100 if get_val(f_d, "returnOnEquity") else None,
-            "Varlık Karlılığı (ROA) (%)": get_val(f_d, "returnOnAssets") * 100 if get_val(f_d, "returnOnAssets") else None,
-            "Cari Oran": get_val(f_d, "currentRatio"),
-            "Borç/Özkaynak": get_val(f_d, "debtToEquity") if get_val(f_d, "debtToEquity") else get_val(k_s, "debtToEquity")
-        }
-    except: return None
 def plot_advanced_chart(symbol, df):
     # Kritik kontrol: DataFrame boş mu veya None mı?
     if df is None or not isinstance(df, pd.DataFrame) or df.empty:
@@ -1071,6 +1039,23 @@ def plot_advanced_chart(symbol, df):
     except Exception as e:
         print(f"Çizim hatası: {e}")
         return None
+
+def format_value(value, is_percentage=False):
+    if value is None:
+        return '—'
+
+    if isinstance(value, (int, float)):
+        if is_percentage:
+            return f"{value:,.2f} %"
+        if abs(value) >= 1_000_000_000_000:
+            return f"{value / 1_000_000_000_000:,.2f} T"
+        if abs(value) >= 1_000_000_000:
+            return f"{value / 1_000_000_000:,.2f} B"
+        if abs(value) >= 1_000_000:
+            return f"{value / 1_000_000:,.2f} M"
+        return f"{value:,.2f}"
+    return str(value)
+
 
 # YENİDEN EKLEMEK İSTEDİĞİNİZ TEMEL VERİ PNG TABLOSU FONKSİYONU
 def generate_fundamentals_image(symbol, fundamentals):
@@ -1154,72 +1139,51 @@ def generate_fundamentals_image(symbol, fundamentals):
 # --- TRADINGVIEW TARZI GRAFİK VE GARANTİLİ YAHOO TEMEL ANALİZ ---
 
 def get_val(data, key):
-    """Veriyi hem dict hem de raw formatında kontrol eden güvenli fonksiyon."""
-    if not data or not isinstance(data, dict):
-        return None
     val = data.get(key)
     if isinstance(val, dict):
-        return val.get("raw", val.get("fmt", None))
+        return val.get("raw")
     return val
 
-def fetch_fundamentals(symbol: str):
-    """
-    Yahoo API'den Cari Oran ve Borç verilerini garantili çeker.
-    """
-    try:
-        ticker_symbol = f"{symbol}.IS" if not symbol.endswith(".IS") else symbol
-        
-        # Manuel API isteği (En sağlam yöntem)
-        url = f"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{ticker_symbol}?modules=financialData,summaryDetail,defaultKeyStatistics"
-        response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
-        
-        if response.status_code != 200: return None
-            
-        res = response.json().get("quoteSummary", {}).get("result", [{}])[0]
-        fin = res.get("financialData", {})
-        sd = res.get("summaryDetail", {})
-        ks = res.get("defaultKeyStatistics", {})
 
+def fetch_fundamentals(symbol: str):
+    try:
+        ticker_symbol = f"{symbol}.IS"
+        t = Ticker(ticker_symbol)
+        
+        summary = t.summary_detail.get(ticker_symbol, {})
+        price_data = t.price.get(ticker_symbol, {})
+        key_stats = t.key_stats.get(ticker_symbol, {})
+        financial_data = t.financial_data.get(ticker_symbol, {})
+
+        if not summary:
+            return None
+            
         info = {}
-        # Piyasa Verileri
-        info["Fiyat (TRY)"] = get_val(fin, "currentPrice")
-        info["Ort. Hacim (10 gün)"] = get_val(sd, "averageDailyVolume10Day")
-        info["Piyasa Değeri"] = get_val(sd, "marketCap")
-        info["Geriye Dönük F/K"] = get_val(sd, "trailingPE")
-        info["İleriye Dönük F/K"] = get_val(sd, "forwardPE")
-        info["Fiyat/Satış (P/S)"] = get_val(sd, "priceToSalesTrailing12Months")
+
+        # Piyasa ve Değerleme
+        info["Fiyat (TRY)"] = get_val(price_data, "regularMarketPrice")
+        info["Ort. Hacim (10 gün)"] = get_val(summary, "averageDailyVolume10Day")
+        info["Piyasa Değeri"] = get_val(summary, "marketCap")
+        info["Geriye Dönük F/K"] = get_val(summary, "trailingPE")
+        info["İleriye Dönük F/K"] = get_val(summary, "forwardPE")
+        info["Fiyat/Satış (P/S)"] = get_val(summary, "priceToSalesTrailing12Months")
         
-        # Marjlar
-        info["Brüt Kar Marjı (%)"] = get_val(fin, "grossMargins") * 100 if get_val(fin, "grossMargins") else None
-        info["Faaliyet Kar Marjı (%)"] = get_val(fin, "operatingMargins") * 100 if get_val(fin, "operatingMargins") else None
-        info["Net Kar Marjı (%)"] = get_val(fin, "profitMargins") * 100 if get_val(fin, "profitMargins") else None
-        info["Özkaynak Karlılığı (ROE) (%)"] = get_val(fin, "returnOnEquity") * 100 if get_val(fin, "returnOnEquity") else None
-        info["Varlık Karlılığı (ROA) (%)"] = get_val(fin, "returnOnAssets") * 100 if get_val(fin, "returnOnAssets") else None
+        # Karlılık ve Marjlar
+        info["Brüt Kar Marjı (%)"] = get_val(financial_data, "grossMargins") * 100 if get_val(financial_data, "grossMargins") is not None else None
+        info["Faaliyet Kar Marjı (%)"] = get_val(financial_data, "operatingMargins") * 100 if get_val(financial_data, "operatingMargins") is not None else None
+        info["Net Kar Marjı (%)"] = get_val(financial_data, "profitMargins") * 100 if get_val(financial_data, "profitMargins") is not None else None
+
+        info["Özkaynak Karlılığı (ROE) (%)"] = get_val(financial_data, "returnOnEquity") * 100 if get_val(financial_data, "returnOnEquity") is not None else None
+        info["Varlık Karlılığı (ROA) (%)"] = get_val(financial_data, "returnOnAssets") * 100 if get_val(financial_data, "returnOnAssets") is not None else None
         
-        # ⚖️ Cari Oran ve Borçluluk (Kurtarılmış Veriler)
-        info["Cari Oran"] = get_val(fin, "currentRatio")
-        info["Borç/Özkaynak"] = get_val(fin, "debtToEquity")
-        if info["Borç/Özkaynak"] is None:
-            info["Borç/Özkaynak"] = get_val(ks, "debtToEquity")
+        # Likidite ve Borçluluk
+        info["Cari Oran"] = get_val(financial_data, "currentRatio")
+        info["Borç/Özkaynak"] = get_val(financial_data, "debtToEquity")
 
         return info
     except Exception as e:
-        print(f"Temel veri hatası: {e}")
+        print(f"Finansal veri çekme hatası ({symbol}): {e}")
         return None
-
-def get_val(data, key):
-    if not data or not isinstance(data, dict): return None
-    v = data.get(key)
-    return v.get("raw") if isinstance(v, dict) else v
-# get_val fonksiyonunu da bu yapıya uygun hale getirelim:
-def get_val(data, key):
-    """Yahoo ham JSON içinden raw veriyi çeken güvenli fonksiyon."""
-    if not data or not isinstance(data, dict):
-        return None
-    target = data.get(key)
-    if isinstance(target, dict):
-        return target.get("raw")
-    return target
 # ------------------- TradingView Tarama Fonksiyonları -------------------
 
 def get_screener_data_from_payload(payload, url):
@@ -2023,11 +1987,6 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_potansiyelli_kagitlar_nasdaq(update, context)
         return
 
-# ------------------- YENİ EKLENEN YAPAY ZEKA YORUM FONKSİYONU -------------------
-
-# ------------------- GÜNCELLENMİŞ YAPAY ZEKA KAPSAMLI YORUM FONKSİYONU -------------------
-
-# ------------------- GÜNCELLENMİŞ YAPAY ZEKA KAPSAMLI YORUM FONKSİYONU (HATA GİDERİLDİ) -------------------
 
 # ------------------- GÜNCELLENMİŞ YAPAY ZEKA KAPSAMLI YORUM FONKSİYONU (HATALAR GİDERİLDİ) -------------------
 
@@ -2153,19 +2112,24 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         # 1. Tam Eşleşme Kontrolü
 # handle_message içindeki ilgili blok
+# --- handle_message içindeki ilgili bloğu bu şekilde güncelle ---
         if text in BILINEN_HISSELER:
             hisse_adi = BILINEN_HISSELER[text]
             message = await update.message.reply_text(f"⏳ **{text}** için veriler alınıyor...")
             
-            # --- HATAYI ÇÖZEN KISIM ---
-            chart_df = fetch_chart_data(text) # Değişken adı 'chart_df' yapıldı
-            chart_path = None
+            # BURASI KRİTİK: 3 veriyi birden alıyoruz
+            chart_data_result = fetch_chart_data(text) 
             
-            # DataFrame kontrolü: Asla 'if chart_df:' yazma!
-            if isinstance(chart_df, pd.DataFrame) and not chart_df.empty:
-                chart_path = plot_advanced_chart(text, chart_df)
-            # --------------------------
-
+            chart_path = None
+            if chart_data_result is not None:
+                # Paketi burada parçalıyoruz: ha_df, times, closes
+                ha_df, times, closes = chart_data_result 
+                
+                # Grafik fonksiyonuna sadece DataFrame olan ha_df'i gönderiyoruz
+                if isinstance(ha_df, pd.DataFrame) and not ha_df.empty:
+                    chart_path = plot_advanced_chart(text, ha_df)
+            
+            # Temel veriler (Aynı kalıyor)
             fundamentals = fetch_fundamentals(text)
             fundamentals_path = generate_fundamentals_image(text, fundamentals) if fundamentals else None
             ai_commentary = generate_ai_commentary(text, fundamentals) if fundamentals else None
@@ -2178,10 +2142,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     await update.message.reply_photo(img, caption=f"📈 {text} - 2 Yıllık Heikin-Ashi Grafiği")
                 os.remove(chart_path)
             
-            if fundamentals_path:
-                with open(fundamentals_path, "rb") as img2:
-                    await update.message.reply_photo(img2, caption=f"💹 {text} - Cari Temel Veriler")
-                os.remove(fundamentals_path)            
+        
             if ai_commentary:
                 await update.message.reply_text(ai_commentary, parse_mode='Markdown')
             
