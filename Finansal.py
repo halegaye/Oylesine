@@ -1867,17 +1867,20 @@ async def duyuru(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Bu komutu kullanmaya yetkiniz yok.")
         return
     
-    # Komutun kendisini (/duyuru) metinden çıkarıp geri kalan mesajı olduğu gibi alıyoruz
-    # Bu yöntem context.args kullanımından daha sağlıklıdır çünkü tüm boşlukları korur.
-    announcement_text_raw = update.message.text.partition(' ')[2]
+    # Fotoğraf var mı kontrol et
+    photo = update.message.photo[-1] if update.message.photo else None
+    
+    # Metni al (Fotoğraf altı açıklaması veya normal mesaj)
+    if photo:
+        announcement_text_raw = update.message.caption.partition(' ')[2] if update.message.caption else ""
+    else:
+        announcement_text_raw = update.message.text.partition(' ')[2]
 
-    if not announcement_text_raw:
-        await update.message.reply_text("📢 Lütfen duyuru metnini girin. Örn:\n`/duyuru` mesajın buraya...")
+    if not announcement_text_raw and not photo:
+        await update.message.reply_text("📢 Lütfen duyuru metnini veya fotoğrafını girin.")
         return
 
-    # Başına sabit başlık ekliyoruz (Markdown formatında)
     final_message = f"📣 **DUYURU** 📣\n\n{announcement_text_raw}"
-    
     user_ids = get_all_user_ids()
     sent_count = 0
     failed_count = 0
@@ -1886,18 +1889,23 @@ async def duyuru(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     for user_id in user_ids:
         try:
-            # Markdown yerine HTML kullanmak genellikle boşluk ve karakter hatalarını azaltır
-            # Ama senin tercihin Markdown ise 'Markdown' olarak bırakabiliriz.
-            await context.bot.send_message(
-                chat_id=user_id, 
-                text=final_message, 
-                parse_mode='Markdown'
-            )
+            if photo:
+                # Fotoğraflı duyuru gönder
+                await context.bot.send_photo(
+                    chat_id=user_id,
+                    photo=photo.file_id,
+                    caption=final_message,
+                    parse_mode='Markdown'
+                )
+            else:
+                # Sadece metin gönder
+                await context.bot.send_message(
+                    chat_id=user_id, 
+                    text=final_message, 
+                    parse_mode='Markdown'
+                )
             sent_count += 1
-            # Çok hızlı gönderip Telegram limitlerine takılmamak için kısa bir bekleme (opsiyonel)
-            # time.sleep(0.05) 
         except Exception as e:
-            print(f"Duyuru gönderilemedi (ID: {user_id}): {e}")
             failed_count += 1
             
     await status_msg.edit_text(f"✅ Duyuru tamamlandı.\nBaşarılı: **{sent_count}**\nBaşarısız: **{failed_count}**")
@@ -2229,7 +2237,7 @@ def main():
     
     # Komutlar
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("duyuru", duyuru))
+    app.add_handler(MessageHandler(filters.PHOTO & filters.CaptionRegex(r'^/duyuru'), duyuru))
     app.add_handler(CommandHandler("addchannel", add_channel)) 
     app.add_handler(CommandHandler("removechannel", remove_channel)) 
     app.add_handler(CommandHandler("listchannels", list_channels)) 
