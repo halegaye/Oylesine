@@ -24,7 +24,8 @@ BOT_TOKEN = "7932037979:AAHyz8Lay8tDl7nwb4L4WFXfPihn3NjTRW4"
 
 # --- YÖNETİM DEĞİŞKENLERİ ---
 USER_LOG_FILE = "users.txt"
-CHANNEL_LOG_FILE = "channel_logs.txt" # Kanal Kayıt Dosyası
+CHANNEL_LOG_FILE = "channel_logs.txt"  # Kanal Kayıt Dosyası
+STATS_FILE = "stats.json"  # Kullanıcı istatistik dosyası
 
 # DUYURU VE KANAL YÖNETİMİ İÇİN YETKİLİ KULLANICILARIN TELEGRAM ID'leri
 # LÜTFEN KENDİ ID'NİZİ BURAYA YAZINIZ! (Örn: 123456789)
@@ -852,6 +853,88 @@ def get_all_user_ids():
     except FileNotFoundError:
         pass
     return user_ids
+
+def load_stats():
+    """İstatistik dosyasını JSON olarak okur."""
+    if not os.path.exists(STATS_FILE):
+        return {}
+    try:
+        with open(STATS_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            if isinstance(data, dict):
+                return data
+    except (json.JSONDecodeError, OSError):
+        pass
+    return {}
+
+def save_stats(stats: dict):
+    """İstatistikleri güvenli bir şekilde dosyaya yazar."""
+    try:
+        with open(STATS_FILE, "w", encoding="utf-8") as f:
+            json.dump(stats, f, ensure_ascii=False, indent=2)
+    except OSError:
+        pass
+
+def update_stats(user, command_name: str):
+    """
+    Kullanıcı ve komut bazlı istatistikleri günceller.
+    user: telegram.User
+    """
+    if user is None:
+        return
+
+    stats = load_stats()
+    uid = str(user.id)
+
+    if uid not in stats:
+        stats[uid] = {
+            "user_id": user.id,
+            "username": user.username,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "total_commands": 0,
+            "commands": {},
+            "last_used": None,
+            "total_messages": 0,
+        }
+
+    user_stats = stats[uid]
+    user_stats["username"] = user.username
+    user_stats["first_name"] = user.first_name
+    user_stats["last_name"] = user.last_name
+
+    if command_name:
+        user_stats["total_commands"] = user_stats.get("total_commands", 0) + 1
+        cmd_counts = user_stats.get("commands", {})
+        cmd_counts[command_name] = cmd_counts.get(command_name, 0) + 1
+        user_stats["commands"] = cmd_counts
+
+    user_stats["last_used"] = datetime.utcnow().isoformat()
+
+    stats[uid] = user_stats
+    save_stats(stats)
+
+def increment_message_count(user):
+    """Kullanıcının toplam mesaj sayısını artırır."""
+    if user is None:
+        return
+    stats = load_stats()
+    uid = str(user.id)
+    if uid not in stats:
+        stats[uid] = {
+            "user_id": user.id,
+            "username": user.username,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "total_commands": 0,
+            "commands": {},
+            "last_used": None,
+            "total_messages": 0,
+        }
+    user_stats = stats[uid]
+    user_stats["total_messages"] = user_stats.get("total_messages", 0) + 1
+    stats[uid] = user_stats
+    save_stats(stats)
 
 def get_required_channels():
     """Zorunlu kanal ID'lerini channels.txt dosyasından okur."""
@@ -1794,6 +1877,8 @@ def main_menu_keyboard():
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     log_user(user.id, user.username, user.first_name)
+    update_stats(user, "start")
+    update_stats(user, "start")
     
     if not await check_subscription(update, context):
         return
@@ -1817,6 +1902,7 @@ async def add_channel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in AUTHORIZED_USERS:
         await update.message.reply_text("❌ Bu komutu kullanmaya yetkiniz yok.")
         return
+    update_stats(update.effective_user, "addchannel")
 
     if not context.args:
         await update.message.reply_text("➕ Lütfen eklenecek kanalın ID'sini veya @kullanıcıadını girin. Örn: `/addchannel @kanal_ismi`")
@@ -1837,6 +1923,7 @@ async def remove_channel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in AUTHORIZED_USERS:
         await update.message.reply_text("❌ Bu komutu kullanmaya yetkiniz yok.")
         return
+    update_stats(update.effective_user, "removechannel")
 
     if not context.args:
         await update.message.reply_text("➖ Lütfen kaldırılacak kanalın ID'sini veya @kullanıcıadını girin. Örn: `/removechannel @eski_kanal`")
@@ -1853,6 +1940,7 @@ async def list_channels(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in AUTHORIZED_USERS:
         await update.message.reply_text("❌ Bu komutu kullanmaya yetkiniz yok.")
         return
+    update_stats(update.effective_user, "listchannels")
 
     channels = get_required_channels()
     if channels:
@@ -1862,53 +1950,224 @@ async def list_channels(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("📢 Zorunlu abonelik kanalı bulunmamaktadır.")
 
 async def duyuru(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Yetki kontrolü
-    if update.effective_user.id not in AUTHORIZED_USERS:
+    """Metin + çoklu fotoğraf ile toplu duyuru gönderimi."""
+    user = update.effective_user
+    update_stats(user, "duyuru")
+
+    if user.id not in AUTHORIZED_USERS:
         await update.message.reply_text("❌ Bu komutu kullanmaya yetkiniz yok.")
         return
-    
-    # Fotoğraf var mı kontrol et
-    photo = update.message.photo[-1] if update.message.photo else None
-    
-    # Metni al (Fotoğraf altı açıklaması veya normal mesaj)
-    if photo:
-        announcement_text_raw = update.message.caption.partition(' ')[2] if update.message.caption else ""
-    else:
-        announcement_text_raw = update.message.text.partition(' ')[2]
 
-    if not announcement_text_raw and not photo:
-        await update.message.reply_text("📢 Lütfen duyuru metnini veya fotoğrafını girin.")
+    message = update.message
+    # Komut metnini hem text hem caption üzerinden destekle
+    raw = (message.text or message.caption or "").strip()
+    args_text = raw.partition(" ")[2] if raw.startswith("/duyuru") else ""
+    if not args_text:
+        await update.message.reply_text(
+            "📢 Lütfen duyuru metnini komutla birlikte yazın.\n\n"
+            "Örnek:\n"
+            "`/duyuru Bugün saat 20:00'de canlı yayın var. Fotoğrafları şimdi gönderiyorum.`",
+            parse_mode="Markdown"
+        )
         return
 
-    final_message = f"📣 **DUYURU** 📣\n\n{announcement_text_raw}"
+    context.user_data["announcement_text"] = args_text
+
+    photos_list = []
+    # Eğer /duyuru bir fotoğrafın açıklaması olarak geldiyse, o fotoğrafı da ilk fotoğraf olarak ekle
+    if message.photo:
+        first_photo_id = message.photo[-1].file_id
+        photos_list.append(first_photo_id)
+
+    context.user_data["announcement_photos"] = photos_list
+
+    await update.message.reply_text(
+        "✅ Duyuru metni alındı.\n\n"
+        "Şimdi bu metinle birlikte göndermek istediğiniz **tüm fotoğrafları** tek tek gönderin.\n"
+        "Fotoğraf ekleme bittikten sonra `/bitir` yazarak duyuruyu gönderin.\n"
+        "İsterseniz `/iptal` yazarak işlemi iptal edebilirsiniz.",
+        parse_mode="Markdown"
+    )
+
+
+async def duyuru_photo_collector(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Duyuru sürecinde gönderilen fotoğrafları toplar."""
+    if "announcement_text" not in context.user_data:
+        return
+
+    # /duyuru komutunun fotoğraflı ilk mesajını burada tekrar sayma
+    if update.message.caption and update.message.caption.startswith("/duyuru"):
+        return
+
+    photos = context.user_data.get("announcement_photos", [])
+    if update.message.photo:
+        file_id = update.message.photo[-1].file_id
+        photos.append(file_id)
+        context.user_data["announcement_photos"] = photos
+        await update.message.reply_text(f"📷 Fotoğraf eklendi. Toplam fotoğraf: {len(photos)}")
+
+
+async def duyuru_finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Duyuru sürecini tamamlar ve toplu gönderim yapar."""
+    user = update.effective_user
+    update_stats(user, "duyuru_bitir")
+
+    if user.id not in AUTHORIZED_USERS:
+        await update.message.reply_text("❌ Bu komutu kullanmaya yetkiniz yok.")
+        return
+
+    text = context.user_data.get("announcement_text")
+    photos = context.user_data.get("announcement_photos", [])
+
+    if not text:
+        await update.message.reply_text("ℹ️ Gönderilecek duyuru metni bulunamadı. Önce `/duyuru` ile metni girin.")
+        return
+
+    if not photos:
+        await update.message.reply_text("ℹ️ Herhangi bir fotoğraf eklenmedi. En az bir fotoğraf göndermelisiniz.")
+        return
+
+    final_message = f"📣 DUYURU 📣\n\n{text}"
     user_ids = get_all_user_ids()
     sent_count = 0
     failed_count = 0
 
-    status_msg = await update.message.reply_text(f"⏳ Duyuru {len(user_ids)} kullanıcıya gönderiliyor...")
+    await update.message.reply_text(
+        f"⏳ Duyuru {len(user_ids)} kullanıcıya gönderilmeye hazırlanıyor. Lütfen bekleyin..."
+    )
 
-    for user_id in user_ids:
+    from telegram import InputMediaPhoto
+
+    media_group = []
+    for idx, fid in enumerate(photos):
+        if idx == 0:
+            media_group.append(InputMediaPhoto(media=fid, caption=final_message, parse_mode="Markdown"))
+        else:
+            media_group.append(InputMediaPhoto(media=fid))
+
+    for uid in user_ids:
         try:
-            if photo:
-                # Fotoğraflı duyuru gönder
-                await context.bot.send_photo(
-                    chat_id=user_id,
-                    photo=photo.file_id,
-                    caption=final_message,
-                    parse_mode='Markdown'
-                )
-            else:
-                # Sadece metin gönder
-                await context.bot.send_message(
-                    chat_id=user_id, 
-                    text=final_message, 
-                    parse_mode='Markdown'
-                )
+            await context.bot.send_media_group(chat_id=uid, media=media_group)
             sent_count += 1
-        except Exception as e:
+        except Exception:
             failed_count += 1
-            
-    await status_msg.edit_text(f"✅ Duyuru tamamlandı.\nBaşarılı: **{sent_count}**\nBaşarısız: **{failed_count}**")
+
+    context.user_data.pop("announcement_text", None)
+    context.user_data.pop("announcement_photos", None)
+
+    await update.message.reply_text(
+        f"✅ Duyuru tamamlandı.\nBaşarılı: {sent_count}\nBaşarısız: {failed_count}"
+    )
+
+
+async def duyuru_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Duyuru sürecini iptal eder."""
+    user = update.effective_user
+    update_stats(user, "duyuru_iptal")
+
+    context.user_data.pop("announcement_text", None)
+    context.user_data.pop("announcement_photos", None)
+    await update.message.reply_text("❌ Duyuru işlemi iptal edildi.")
+
+
+async def my_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Kullanıcının kendi istatistik özetini gösterir."""
+    user = update.effective_user
+    update_stats(user, "my_stats")
+
+    stats = load_stats()
+    uid = str(user.id)
+    data = stats.get(uid)
+    if not data:
+        await update.message.reply_text("ℹ️ Şu anda kayıtlı istatistik bulunmuyor.")
+        return
+
+    commands = data.get("commands", {})
+    top_cmds = sorted(commands.items(), key=lambda x: x[1], reverse=True)[:5]
+    cmd_lines = "\n".join([f"- {cmd}: {count}" for cmd, count in top_cmds]) or "Komut kullanılmamış."
+
+    msg = (
+        f"📊 Kişisel İstatistiklerin\n\n"
+        f"🧑 Kullanıcı: {user.full_name} (ID: {user.id})\n"
+        f"📝 Toplam komut sayısı: {data.get('total_commands', 0)}\n"
+        f"💬 Toplam mesaj sayısı: {data.get('total_messages', 0)}\n"
+        f"⏱ Son kullanım: {data.get('last_used', 'Bilgi yok')}\n\n"
+        f"📌 En çok kullandığın komutlar:\n{cmd_lines}"
+    )
+    await update.message.reply_text(msg)
+
+
+async def top_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """En çok komut kullanan ilk N kullanıcıyı listeler (sadece admin)."""
+    user = update.effective_user
+    if user.id not in AUTHORIZED_USERS:
+        await update.message.reply_text("❌ Bu komutu kullanmaya yetkiniz yok.")
+        return
+    update_stats(user, "top_stats")
+
+    stats = load_stats()
+    users = list(stats.values())
+    users.sort(key=lambda x: x.get("total_commands", 0), reverse=True)
+    top_n = int(context.args[0]) if context.args else 10
+    users = users[:top_n]
+
+    if not users:
+        await update.message.reply_text("ℹ️ Henüz istatistik verisi yok.")
+        return
+
+    lines = []
+    for idx, u in enumerate(users, start=1):
+        name = u.get("first_name") or "Bilinmiyor"
+        total_cmd = u.get("total_commands", 0)
+        total_msg = u.get("total_messages", 0)
+        lines.append(f"{idx}. {name} (ID: {u.get('user_id')}): {total_cmd} komut, {total_msg} mesaj")
+
+    await update.message.reply_text("🏆 En Aktif Kullanıcılar:\n\n" + "\n".join(lines))
+
+
+async def command_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Komut bazlı toplam kullanım sayılarını gösterir (sadece admin)."""
+    user = update.effective_user
+    if user.id not in AUTHORIZED_USERS:
+        await update.message.reply_text("❌ Bu komutu kullanmaya yetkiniz yok.")
+        return
+    update_stats(user, "command_stats")
+
+    stats = load_stats()
+    aggregate: dict = {}
+    for u in stats.values():
+        for cmd, count in u.get("commands", {}).items():
+            aggregate[cmd] = aggregate.get(cmd, 0) + count
+
+    if not aggregate:
+        await update.message.reply_text("ℹ️ Henüz komut istatistiği yok.")
+        return
+
+    sorted_cmds = sorted(aggregate.items(), key=lambda x: x[1], reverse=True)
+    lines = [f"- {cmd}: {count}" for cmd, count in sorted_cmds]
+    await update.message.reply_text("📊 Komut Kullanım İstatistikleri:\n\n" + "\n".join(lines))
+
+
+async def user_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Toplam kayıtlı kullanıcı sayısını gösterir (sadece admin)."""
+    user = update.effective_user
+    if user.id not in AUTHORIZED_USERS:
+        await update.message.reply_text("❌ Bu komutu kullanmaya yetkiniz yok.")
+        return
+    update_stats(user, "user_count")
+
+    user_ids = get_all_user_ids()
+    stats = load_stats()
+
+    txt_users = len(user_ids)
+    stats_users = len(stats)
+
+    msg = (
+        "👥 Kullanıcı Sayısı\n\n"
+        f"- users.txt (kayıtlı ID sayısı): {txt_users}\n"
+        f"- stats.json (istatistik tutulan kullanıcı): {stats_users}\n"
+    )
+    await update.message.reply_text(msg)
 # ------------------- Mesaj ve Callback Handler'ları -------------------
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2107,9 +2366,15 @@ def generate_ai_commentary(symbol: str, fundamentals: dict) -> str:
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    increment_message_count(update.effective_user)
+
     # Abonelik kontrolü
     if not await check_subscription(update, context):
         return
+
+    # Genel metin mesajları için basit istatistik (komut değilse)
+    if update.message and not update.message.text.startswith("/"):
+        update_stats(update.effective_user, "text_message")
 
     # Sadece hisse kodu bekleniyorsa çalışır
     if context.user_data.get('waiting_for_stock'):
@@ -2237,7 +2502,15 @@ def main():
     
     # Komutlar
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.PHOTO & filters.CaptionRegex(r'^/duyuru'), duyuru))
+    app.add_handler(CommandHandler("duyuru", duyuru))
+    app.add_handler(CommandHandler("bitir", duyuru_finish))
+    app.add_handler(CommandHandler("iptal", duyuru_cancel))
+    # İstatistik komutları (Türkçe + İngilizce alias)
+    app.add_handler(CommandHandler(["mystats", "istatistik_ben"], my_stats))
+    app.add_handler(CommandHandler(["topstats", "istatistik_top"], top_stats))
+    app.add_handler(CommandHandler(["cmdstats", "istatistik_komut"], command_stats))
+    app.add_handler(CommandHandler(["usercount", "kullanici_sayisi"], user_count))
+    app.add_handler(MessageHandler(filters.PHOTO, duyuru_photo_collector))
     app.add_handler(CommandHandler("addchannel", add_channel)) 
     app.add_handler(CommandHandler("removechannel", remove_channel)) 
     app.add_handler(CommandHandler("listchannels", list_channels)) 
