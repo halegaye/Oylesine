@@ -1,0 +1,68 @@
+2026-06-05 13:56:57,191 [INFO] === Otomasyon Süreci Başladı ===
+2026-06-05 13:56:57,192 [INFO] Selenium ile ana sayfa yükleniyor: https://youth.europa.eu/go-abroad/volunteering/opportunities_en
+2026-06-05 13:57:03,286 [INFO] Ana sayfadan toplam 8 adet 'Read more' detay linki yakalandı.
+2026-06-05 13:57:03,286 [INFO] [1/8] Detay sayfasına giriliyor: https://youth.europa.eu/solidarity/opportunity/52363_en
+2026-06-05 13:57:03,876 [INFO] -> Başarıyla Çekilen Kurum Adı: COL.LECTIU LA VIBRIA D'INICIATIVES CULTURALS PER LA TOLERANCIA I LA INTEGRACIO SOCIAL
+2026-06-05 13:57:03,876 [INFO] [2/8] Detay sayfasına giriliyor: https://youth.europa.eu/solidarity/opportunity/52362_en
+2026-06-05 13:57:04,160 [INFO] -> Başarıyla Çekilen Kurum Adı: COL.LECTIU LA VIBRIA D'INICIATIVES CULTURALS PER LA TOLERANCIA I LA INTEGRACIO SOCIAL
+2026-06-05 13:57:04,160 [INFO] [3/8] Detay sayfasına giriliyor: https://youth.europa.eu/solidarity/opportunity/52360_en
+2026-06-05 13:57:04,341 [INFO] -> Başarıyla Çekilen Kurum Adı: Nuorisokeskus Metsäkartano
+2026-06-05 13:57:04,341 [INFO] [4/8] Detay sayfasına giriliyor: https://youth.europa.eu/solidarity/opportunity/52358_en
+2026-06-05 13:57:04,717 [INFO] -> Başarıyla Çekilen Kurum Adı: IASIS
+2026-06-05 13:57:04,717 [INFO] [5/8] Detay sayfasına giriliyor: https://youth.europa.eu/solidarity/opportunity/52359_en
+2026-06-05 13:57:05,001 [INFO] -> Başarıyla Çekilen Kurum Adı: Associazione Antigóna
+2026-06-05 13:57:05,002 [INFO] [6/8] Detay sayfasına giriliyor: https://youth.europa.eu/solidarity/opportunity/52364_en
+2026-06-05 13:57:05,269 [INFO] -> Başarıyla Çekilen Kurum Adı: COL.LECTIU LA VIBRIA D'INICIATIVES CULTURALS PER LA TOLERANCIA I LA INTEGRACIO SOCIAL
+2026-06-05 13:57:05,269 [INFO] [7/8] Detay sayfasına giriliyor: https://youth.europa.eu/solidarity/opportunity/52365_en
+2026-06-05 13:57:05,560 [INFO] -> Başarıyla Çekilen Kurum Adı: STUDIO PROGETTO SOCIETA COOPERATIVASOCIALE
+2026-06-05 13:57:05,560 [INFO] [8/8] Detay sayfasına giriliyor: https://youth.europa.eu/solidarity/opportunity/52361_en
+2026-06-05 13:57:06,502 [INFO] -> Başarıyla Çekilen Kurum Adı: REMPART
+2026-06-05 13:57:12,735 [INFO] Herkese açık Google Sheet verisi indiriliyor...
+2026-06-05 13:57:15,027 [INFO] Google Sheet verileri başarıyla indirildi. Satır sayısı: 5439
+2026-06-05 13:57:15,064 [INFO] Nuorisokeskus Metsäkartano kurumuna e-posta gönderiliyor (info@metsakartano.com)...
+2026-06-05 13:57:19,331 [INFO] Nuorisokeskus Metsäkartano kurumuna e-posta başarıyla gönderildi.
+2026-06-05 13:57:19,336 [INFO] STUDIO PROGETTO SOCIETA COOPERATIVASOCIALE kurumuna e-posta gönderiliyor (stprogetto@legalmail.it)...
+2026-06-05 13:57:21,777 [INFO] STUDIO PROGETTO SOCIETA COOPERATIVASOCIALE kurumuna e-posta başarıyla gönderildi.
+2026-06-05 13:57:21,783 [INFO] IASIS kurumuna e-posta gönderiliyor (amkeiasis@gmail.com)...
+2026-06-05 13:57:24,246 [INFO] IASIS kurumuna e-posta başarıyla gönderildi.
+2026-06-05 13:57:24,252 [INFO] Associazione Antigóna kurumuna e-posta gönderiliyor (antigona@libero.it)...
+2026-06-05 13:57:26,702 [INFO] Associazione Antigóna kurumuna e-posta başarıyla gönderildi.
+2026-06-05 13:57:26,708 [INFO] REMPART kurumuna e-posta gönderiliyor (contact@rempart.com)...
+2026-06-05 13:57:29,203 [INFO] REMPART kurumuna e-posta başarıyla gönderildi.
+2026-06-05 13:57:29,206 [INFO] COL.LECTIU LA VIBRIA D'INICIATIVES CULTURALS PER LA TOLERANCIA I LA INTEGRACIO SOCIAL kurumuna e-posta gönderiliyor (vibria_intercultural@yahoo.es)...
+2026-06-05 13:57:31,600 [INFO] COL.LECTIU LA VIBRIA D'INICIATIVES CULTURALS PER LA TOLERANCIA I LA INTEGRACIO SOCIAL kurumuna e-posta başarıyla gönderildi.
+2026-06-05 13:57:31,601 [INFO] === Otomasyon Süreci Tamamlandı ===
+2026-06-05 14:00:33,386 [INFO] === Otomasyon Süreci Başladı ===
+2026-06-05 14:00:33,386 [INFO] Selenium ile ana sayfa yükleniyor: https://youth.europa.eu/go-abroad/volunteering/opportunities_en
+2026-06-05 14:00:39,414 [INFO] Ana sayfadan toplam 8 adet 'Read more' detay linki yakalandı.
+2026-06-05 14:00:39,415 [INFO] [1/8] Detay sayfasına giriliyor: https://youth.europa.eu/solidarity/opportunity/52364_en
+2026-06-05 14:00:40,057 [INFO] -> Başarıyla Çekilen Kurum Adı: COL.LECTIU LA VIBRIA D'INICIATIVES CULTURALS PER LA TOLERANCIA I LA INTEGRACIO SOCIAL
+2026-06-05 14:00:40,058 [INFO] [2/8] Detay sayfasına giriliyor: https://youth.europa.eu/solidarity/opportunity/52359_en
+2026-06-05 14:00:41,238 [INFO] -> Başarıyla Çekilen Kurum Adı: Associazione Antigóna
+2026-06-05 14:00:41,239 [INFO] [3/8] Detay sayfasına giriliyor: https://youth.europa.eu/solidarity/opportunity/52365_en
+2026-06-05 14:00:42,265 [INFO] -> Başarıyla Çekilen Kurum Adı: STUDIO PROGETTO SOCIETA COOPERATIVASOCIALE
+2026-06-05 14:00:42,266 [INFO] [4/8] Detay sayfasına giriliyor: https://youth.europa.eu/solidarity/opportunity/52361_en
+2026-06-05 14:00:42,440 [INFO] -> Başarıyla Çekilen Kurum Adı: REMPART
+2026-06-05 14:00:42,441 [INFO] [5/8] Detay sayfasına giriliyor: https://youth.europa.eu/solidarity/opportunity/52358_en
+2026-06-05 14:00:42,699 [INFO] -> Başarıyla Çekilen Kurum Adı: IASIS
+2026-06-05 14:00:42,699 [INFO] [6/8] Detay sayfasına giriliyor: https://youth.europa.eu/solidarity/opportunity/52362_en
+2026-06-05 14:00:43,042 [INFO] -> Başarıyla Çekilen Kurum Adı: COL.LECTIU LA VIBRIA D'INICIATIVES CULTURALS PER LA TOLERANCIA I LA INTEGRACIO SOCIAL
+2026-06-05 14:00:43,042 [INFO] [7/8] Detay sayfasına giriliyor: https://youth.europa.eu/solidarity/opportunity/52363_en
+2026-06-05 14:00:43,444 [INFO] -> Başarıyla Çekilen Kurum Adı: COL.LECTIU LA VIBRIA D'INICIATIVES CULTURALS PER LA TOLERANCIA I LA INTEGRACIO SOCIAL
+2026-06-05 14:00:43,444 [INFO] [8/8] Detay sayfasına giriliyor: https://youth.europa.eu/solidarity/opportunity/52360_en
+2026-06-05 14:00:43,640 [INFO] -> Başarıyla Çekilen Kurum Adı: Nuorisokeskus Metsäkartano
+2026-06-05 14:00:49,878 [INFO] Herkese açık Google Sheet verisi indiriliyor...
+2026-06-05 14:00:51,866 [INFO] Google Sheet verileri başarıyla indirildi. Satır sayısı: 5439
+2026-06-05 14:00:51,903 [INFO] COL.LECTIU LA VIBRIA D'INICIATIVES CULTURALS PER LA TOLERANCIA I LA INTEGRACIO SOCIAL kurumuna e-posta gönderiliyor (vibria_intercultural@yahoo.es)...
+2026-06-05 14:00:54,919 [ERROR] COL.LECTIU LA VIBRIA D'INICIATIVES CULTURALS PER LA TOLERANCIA I LA INTEGRACIO SOCIAL e-posta hatası: (535, b'5.7.8 Username and Password not accepted. For more information, go to\n5.7.8  https://support.google.com/mail/?p=BadCredentials a640c23a62f3a-bf051c8de00sm447392966b.20 - gsmtp')
+2026-06-05 14:00:54,924 [INFO] IASIS kurumuna e-posta gönderiliyor (amkeiasis@gmail.com)...
+2026-06-05 14:00:56,971 [ERROR] IASIS e-posta hatası: (535, b'5.7.8 Username and Password not accepted. For more information, go to\n5.7.8  https://support.google.com/mail/?p=BadCredentials 4fb4d7f45d1cf-68e65029381sm3662864a12.13 - gsmtp')
+2026-06-05 14:00:56,978 [INFO] Associazione Antigóna kurumuna e-posta gönderiliyor (antigona@libero.it)...
+2026-06-05 14:00:59,276 [ERROR] Associazione Antigóna e-posta hatası: (535, b'5.7.8 Username and Password not accepted. For more information, go to\n5.7.8  https://support.google.com/mail/?p=BadCredentials 4fb4d7f45d1cf-68e65868049sm3554805a12.24 - gsmtp')
+2026-06-05 14:00:59,287 [INFO] REMPART kurumuna e-posta gönderiliyor (contact@rempart.com)...
+2026-06-05 14:01:01,242 [ERROR] REMPART e-posta hatası: (535, b'5.7.8 Username and Password not accepted. For more information, go to\n5.7.8  https://support.google.com/mail/?p=BadCredentials a640c23a62f3a-bf051e9aa33sm443564966b.24 - gsmtp')
+2026-06-05 14:01:01,247 [INFO] STUDIO PROGETTO SOCIETA COOPERATIVASOCIALE kurumuna e-posta gönderiliyor (stprogetto@legalmail.it)...
+2026-06-05 14:01:03,289 [ERROR] STUDIO PROGETTO SOCIETA COOPERATIVASOCIALE e-posta hatası: (535, b'5.7.8 Username and Password not accepted. For more information, go to\n5.7.8  https://support.google.com/mail/?p=BadCredentials a640c23a62f3a-bf054e06dddsm446375766b.36 - gsmtp')
+2026-06-05 14:01:03,295 [INFO] Nuorisokeskus Metsäkartano kurumuna e-posta gönderiliyor (info@metsakartano.com)...
+2026-06-05 14:01:05,363 [ERROR] Nuorisokeskus Metsäkartano e-posta hatası: (535, b'5.7.8 Username and Password not accepted. For more information, go to\n5.7.8  https://support.google.com/mail/?p=BadCredentials 4fb4d7f45d1cf-68e65027662sm3653256a12.11 - gsmtp')
+2026-06-05 14:01:05,364 [INFO] === Otomasyon Süreci Tamamlandı ===
